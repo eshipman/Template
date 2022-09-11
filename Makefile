@@ -1,6 +1,6 @@
 ################################################################################
 # Author : Evan Shipman
-# Version: 1.2
+# Version: 1.3
 ################################################################################
 #
 # This general purpose Makefile should be reusable for many projects structured
@@ -35,6 +35,7 @@
 # v1.0 - Initial creation
 # V1.1 - Changed most @echo calls to $(info) for portability
 # V1.2 - Added doxygen build target
+# V1.3 - Added target for building shared library
 ################################################################################
 
 # Set the compilers if none already set
@@ -60,19 +61,23 @@ CXXFLAGS ?= --std=c++98
 CFLAGS   ?= --std=c99
 
 # Set the linker and general flags
-LDFLAGS ?=
-FLAGS   ?= -O3 -fPIE -g3
+LDFLAGS  ?=
+FLAGS    ?= -O3 -fPIE -g3
+LIBFLAGS ?= 
 
 ################################################################################
-## DON'T CHANGE ANYTHING BELOW HERE																						##
-## All other variables should be set based on the variables above							##
+## DON'T CHANGE ANYTHING BELOW HERE											  ##
+## All other variables should be set based on the variables above			  ##
 ################################################################################
 
 # Set the directory of source files common to all executables
 COM_DIR := $(SRC_DIR)/$(COMMON)
 
 # Each subdirectory in the SRC_DIR is an executable (except COMMON)
-EXES := $(addprefix $(BLD_DIR)/,$(shell find $(SRC_DIR) -mindepth 1 -maxdepth 2 \( \! -path "$(COM_DIR)" \) -type d -printf '%f\n'))
+EXES := $(addprefix $(BLD_DIR)/,$(shell find $(SRC_DIR) -mindepth 1 -maxdepth 2 \( \! -path "$(COM_DIR)" -and \! -name "*.so" \) -type d -printf '%f\n'))
+
+# If a directory ends with .a or .so, it will be built as a library
+LIBS := $(addprefix $(BLD_DIR)/,$(shell find $(SRC_DIR) -mindepth 1 -maxdepth 2 \( \! -path "$(COM_DIR)" -and -name "*.so" \) -type d -printf '%f\n'))
 
 # Gather the C/C++ source files, the object names, and dependency files
 SRCS := $(shell find $(SRC_DIR) -type f -name '*.cpp' -or -name '*.c')
@@ -85,14 +90,23 @@ COBS := $(strip $(foreach file,$(OBJS),$(filter $(OBJ_DIR)/$(COM_DIR)/%,$(file))
 # Set the includes/library path flags and add to the general flags
 INC_FLAGS := $(addprefix -I,$(shell find $(INC_DIR) -maxdepth 1 -type d -printf '%f\n') $(SRC_DIR))
 LIB_FLAGS := $(addprefix -L,$(shell find $(LIB_DIR) -maxdepth 1 -type d -printf '%f\n'))
-FLAGS += -MMD -MP $(INC_FLAGS) $(LIB_FLAGS)
+FLAGS += -fPIC -MMD -MP $(INC_FLAGS) $(LIB_FLAGS)
+LIBFLAGS += -shared
 
 .PHONY: clean all again show
 
 # The default target should just be the executables in $(BLD_DIR)/
-all: $(EXES)
+all: $(LIBS) $(EXES)
 
 again: clean all
+
+$(LIBS): $(OBJS)
+	$(info Linking library $@)
+	$(MKDIR) $(dir $@)
+	$(CXX) -I$(SRC_DIR)/$(notdir $@) $(LIBFLAGS) $(FLAGS) $(CXXFLAGS) -o $@ \
+		$(strip $(foreach file,$(OBJS),$(filter $(OBJ_DIR)/$(SRC_DIR)/$(notdir $@)/%,$(file)))) \
+		$(COBS) $(LDFLAGS)
+	@echo
 
 # Create a link to $(BLD_DIR)/<exe> at ./<exe>
 $(notdir $(EXES)): $(EXES)
@@ -101,12 +115,12 @@ $(notdir $(EXES)): $(EXES)
 	@echo
 
 # Link the executable with the objects from its source dir and the common objects
-$(EXES): $(OBJS)
+$(EXES): $(OBJS) $(LIBS)
 	$(info Linking executable $@)
 	$(MKDIR) $(dir $@)
 	$(CXX) -I$(SRC_DIR)/$(notdir $@) $(FLAGS) $(CXXFLAGS) -o $@ \
 		$(strip $(foreach file,$(OBJS),$(filter $(OBJ_DIR)/$(SRC_DIR)/$(notdir $@)/%,$(file)))) \
-		$(COBS) $(LDFLAGS)
+		$(COBS) $(LDFLAGS) $(LIBS)
 	@echo
 
 # Compile the C++ source files
@@ -115,7 +129,6 @@ $(OBJ_DIR)/%.cpp.o: %.cpp
 	$(MKDIR) $(dir $@)
 	$(CXX) -I$(dir $<) $(FLAGS) $(CXXFLAGS) -c $< -o $@
 	@echo
-
 
 # Compile the C source files
 $(OBJ_DIR)/%.c.o: %.c
@@ -134,6 +147,7 @@ docs:
 # Show the major defined variables for debugging purposes
 show:
 	$(info Executables : $(EXES))
+	$(info Libraries   : $(LIBS))
 	$(info Source Files: $(SRCS))
 	$(info Object Files: $(OBJS))
 	$(info Dependencies: $(DEPS))
