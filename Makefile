@@ -1,6 +1,6 @@
 ################################################################################
 # Author : Evan Shipman
-# Version: 1.5.0
+# Version: 1.5.1
 ################################################################################
 #
 # This general purpose Makefile should be reusable for many projects structured
