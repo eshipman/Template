@@ -42,6 +42,7 @@
 # V1.5.1 - Added defines for build date, version, and wxWidgets version
 ################################################################################
 
+# Set the version of the program
 VERSION ?= 1.0
 
 # Set the compilers if none already set
