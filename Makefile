@@ -76,8 +76,8 @@ LIBFLAGS ?=
 WX_CONFIG ?= $(shell which wx-config)
 
 ################################################################################
-## DON'T CHANGE ANYTHING BELOW HERE											  ##
-## All other variables should be set based on the variables above			  ##
+## DON'T CHANGE ANYTHING BELOW HERE                                           ##
+## All other variables should be set based on the variables above             ##
 ################################################################################
 
 # Generate the wxWidgets flags if wx-config exists
